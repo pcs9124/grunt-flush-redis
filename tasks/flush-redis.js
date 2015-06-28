@@ -17,8 +17,45 @@ module.exports = function(grunt) {
   // TASKS
   // ==========================================================================
 
-  grunt.registerInitTask('flushredis', 'Flush a redis database.', function() {
+  grunt.registerMultiTask('flushredis', 'Flush a redis database.', function() {
     grunt.log.write('Flushing the redis database');
-    redis.createClient().flushdb(this.async());
+    var options = this.options({
+      host: "localhost",
+      port: 6379,
+    });
+
+
+    redisClient = redis.createClient(port, host)
+    redisClient.on('error', function(err) {
+      grunt.warn('Redis client, error: ' + err);
+    });
+
+    if (!this.data.keys) {
+       this.data.keys = [];
+    }
+    if (this.data.keys.length === 0){
+       redisClient.flushdb(this.async());
+       grunt.log.ok('redis flush all');
+    }else{
+      grunt.log.writeln('Deleting keys...');
+      var callbacks_left = this.data.keys.length;
+      var delete_keys = function(key_pattern) {
+        client.keys(key_pattern, function(err, keys){
+          for (var n = 0; n < keys.length; n++) {
+            grunt.verbose.writeln('Deleting: ' + keys[n]);
+            client.del(keys[n]);
+          }
+          grunt.log.ok('Deleted ' + keys.length + ' keys on pattern: ' + key_pattern);
+          if ((--callbacks_left) === 0) {
+            client.quit();
+            done();
+          }
+        });
+      };
+
+      for (var i = 0; i < this.data.keys.length; i++) {
+        delete_keys(this.data.keys[i]);
+      }
+    }
   });
 };
